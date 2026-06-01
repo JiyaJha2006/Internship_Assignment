@@ -52,20 +52,20 @@ The chatbot answers basic banking-related questions by:
 
 ## Project Structure
 
-
+```text
 banking_chatbot/
 │
 ├── chatbot.py
 ├── banking_data.json
 ├── requirements.txt
 └── README.md
-
+```
 
 ---
 
 ## Working Architecture
 
-
+```text
 User Question
       │
       ▼
@@ -86,7 +86,7 @@ Generate Final Response
       │
       ▼
 Display Answer to User
-
+```
 
 ---
 
@@ -132,40 +132,40 @@ This follows the Retrieval-Augmented Generation (RAG) approach.
 
 ### Clone Repository
 
-
+```bash
 git clone <repository-link>
 cd banking_chatbot
-
+```
 
 ### Install Dependencies
 
-
+```bash
 pip install -r requirements.txt
-
+```
 
 ---
 
 ## Running the Chatbot
 
-
+```bash
 python chatbot.py
-
+```
 
 ---
 
 ## Example
 
-
+```text
 You: What is KYC?
 
 Bot: KYC means Know Your Customer. It is a process used by banks to verify the identity and address of customers.
+```
 
-
-
+```text
 You: What documents are required to open a bank account?
 
 Bot: Common documents required are Aadhaar card, PAN card, address proof, identity proof, and passport-size photographs.
-
+```
 
 ---
 
