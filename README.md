@@ -186,4 +186,3 @@ This project demonstrates the use of Embeddings, Retrieval, and Large Language M
 
 ---
 
-This project demonstrates the use of Embeddings, Retrieval, and Large Language Models to build a simple Banking Question Answering system. It implements a basic Retrieval-Augmented Generation (RAG) pipeline using Sentence Transformers and FLAN-T5.
