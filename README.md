@@ -1,60 +1,83 @@
-# Basic Banking Chatbot using LLM and Embeddings
+# 🏦 Banking Chatbot using Embeddings, Retrieval-Augmented Generation (RAG), and Local LLM
 
 ## Overview
 
-This project is a simple Retrieval-Augmented Generation (RAG) based Banking Chatbot developed as part of an AI Internship Assignment.
+This project is a Banking Chatbot developed using Retrieval-Augmented Generation (RAG).
 
-The chatbot answers basic banking-related questions by:
+The chatbot combines:
 
-1. Converting user questions into embeddings.
-2. Retrieving the most relevant banking information from a predefined dataset.
-3. Passing the retrieved information and user query to a Local Language Model (LLM).
-4. Generating a natural language response.
+* Sentence Transformer Embeddings
+* Cosine Similarity Retrieval
+* FLAN-T5 Local Language Model
+* Streamlit Web Interface
+
+The system retrieves relevant banking information from a knowledge base and uses a local LLM to generate natural language responses.
 
 ---
 
-## Features
+# Features
 
+### AI Features
+
+* Semantic Search using Embeddings
+* Retrieval-Augmented Generation (RAG)
+* Local Large Language Model (FLAN-T5)
 * Banking Question Answering
-* Embedding-based Information Retrieval
-* Cosine Similarity Search
-* Local LLM Integration
-* Command Line Interface
-* Lightweight and Easy to Run
+* Similarity-based Information Retrieval
+
+### User Interface Features
+
+* ChatGPT-style Interface
+* Conversation History
+* User and Bot Chat Bubbles
+* Real-time Response Generation
+* Retrieval Details Viewer
+* Clear Chat Button
+* Responsive Web Interface
 
 ---
 
-## Technologies Used
+# Technologies Used
+
+## Frontend
+
+* Streamlit
+* HTML/CSS Styling
+* ChatGPT-inspired UI Design
+
+## Backend
+
+* Python
+* Sentence Transformers
+* Transformers Library
+* NumPy
+
+## Language Models
 
 ### Embedding Model
 
-* Sentence Transformers
-* Model: `all-MiniLM-L6-v2`
+```text
+all-MiniLM-L6-v2
+```
 
-### Language Model (LLM)
+Used for converting user questions and banking questions into vector embeddings.
 
-* Google FLAN-T5 Base
-* Model: `google/flan-t5-base`
+### Local LLM
 
-### Programming Language
+```text
+google/flan-t5-base
+```
 
-* Python 3
-
-### Libraries
-
-* sentence-transformers
-* transformers
-* torch
-* numpy
-* sentencepiece
+Used for generating natural language responses.
 
 ---
 
-## Project Structure
+# Project Structure
 
 ```text
 banking_chatbot/
 │
+├── app.py
 ├── chatbot.py
 ├── banking_data.json
 ├── requirements.txt
@@ -63,81 +86,169 @@ banking_chatbot/
 
 ---
 
-## Working Architecture
+# System Architecture
 
 ```text
 User Question
-      │
-      ▼
-Embedding Generation
+        │
+        ▼
+Frontend (Streamlit UI)
+        │
+        ▼
+Sentence Transformer
 (all-MiniLM-L6-v2)
-      │
-      ▼
+        │
+        ▼
+Embedding Generation
+        │
+        ▼
 Cosine Similarity Search
-      │
-      ▼
-Retrieve Most Relevant Banking Information
-      │
-      ▼
-Pass Query + Retrieved Context to FLAN-T5
-      │
-      ▼
-Generate Final Response
-      │
-      ▼
-Display Answer to User
+        │
+        ▼
+Retrieve Banking Context
+        │
+        ▼
+FLAN-T5 Local LLM
+        │
+        ▼
+Generate Final Answer
+        │
+        ▼
+Display Response in UI
 ```
 
 ---
 
-## Dataset
+# Backend Workflow
 
-The chatbot uses a small banking knowledge base stored in JSON format.
+### Step 1: User Query
 
-Sample Topics:
+The user enters a banking question through the Streamlit interface.
 
-* KYC (Know Your Customer)
+Example:
+
+```text
+What is KYC?
+```
+
+---
+
+### Step 2: Embedding Generation
+
+The query is converted into a vector representation using:
+
+```text
+all-MiniLM-L6-v2
+```
+
+---
+
+### Step 3: Similarity Search
+
+Cosine similarity is calculated between:
+
+* User Query Embedding
+* Stored Banking Question Embeddings
+
+The most relevant banking question is identified.
+
+---
+
+### Step 4: Retrieval
+
+The corresponding banking answer is retrieved from:
+
+```text
+banking_data.json
+```
+
+---
+
+### Step 5: LLM Generation
+
+The system sends:
+
+* User Question
+* Retrieved Banking Information
+
+to:
+
+```text
+FLAN-T5 Base
+```
+
+The LLM generates the final response.
+
+---
+
+### Step 6: Display Response
+
+The generated answer is displayed in the chatbot interface.
+
+---
+
+# Frontend Workflow
+
+The frontend is built using Streamlit.
+
+Components used:
+
+### Chat Window
+
+Displays:
+
+* User Messages
+* Bot Responses
+
+using chat bubbles.
+
+### Input Box
+
+Allows users to enter banking questions.
+
+### Send Button
+
+Triggers backend processing.
+
+### Retrieval Details Section
+
+Shows:
+
+* Retrieved Banking Information
+* Similarity Score
+
+for transparency and debugging.
+
+### Clear Chat Button
+
+Clears the conversation history.
+
+---
+
+# Banking Knowledge Base
+
+The chatbot currently supports:
+
+* KYC
 * Savings Account
 * Current Account
 * Fixed Deposit
-* Internet Banking
 * ATM Card
-* Loan
-* Bank Account Opening Documents
+* Internet Banking
+* Loans
+* Account Opening Documents
 
----
+The knowledge base is stored in:
 
-## Retrieval Process
-
-1. All banking questions are converted into embeddings.
-2. The user's query is converted into an embedding.
-3. Cosine similarity is calculated between the user query and stored questions.
-4. The most relevant banking answer is retrieved.
-
----
-
-## LLM Response Generation
-
-After retrieval:
-
-* The retrieved banking information is combined with the user query.
-* The prompt is passed to FLAN-T5.
-* FLAN-T5 generates the final response in natural language.
-
-This follows the Retrieval-Augmented Generation (RAG) approach.
-
----
-
-## Installation
-
-### Clone Repository
-
-```bash
-git clone <repository-link>
-cd banking_chatbot
+```text
+banking_data.json
 ```
 
-### Install Dependencies
+---
+
+# Installation
+
+Install dependencies:
 
 ```bash
 pip install -r requirements.txt
@@ -145,44 +256,40 @@ pip install -r requirements.txt
 
 ---
 
-## Running the Chatbot
+# Run the Application
+
+Launch the Streamlit interface:
 
 ```bash
-python chatbot.py
+python -m streamlit run app.py
 ```
 
 ---
 
-## Example
+# Example Conversation
 
 ```text
-You: What is KYC?
+User:
+What is KYC?
 
-Bot: KYC means Know Your Customer. It is a process used by banks to verify the identity and address of customers.
-```
-
-```text
-You: What documents are required to open a bank account?
-
-Bot: Common documents required are Aadhaar card, PAN card, address proof, identity proof, and passport-size photographs.
+Bot:
+KYC means Know Your Customer. It is a process used by banks to verify the identity and address of customers.
 ```
 
 ---
 
-## Future Improvements
+# Future Improvements
 
-* Larger Banking Knowledge Base
-* Web Interface using Flask or Streamlit
-* Vector Database Integration
-* Multi-turn Conversations
+* Larger Banking Dataset
+* PDF Knowledge Base Support
+* Vector Database Integration (FAISS/Pinecone)
+* Voice-Based Chatbot
+* Multi-turn Context Memory
 * Fine-tuned Banking LLM
-* Voice-based Interaction
+* Authentication System
 
 ---
 
-## Conclusion
+# Conclusion
 
-This project demonstrates the use of Embeddings, Retrieval, and Large Language Models to build a simple Banking Question Answering system. It implements a basic Retrieval-Augmented Generation (RAG) pipeline using Sentence Transformers and FLAN-T5.
-
----
-
+This project demonstrates a complete Retrieval-Augmented Generation (RAG) pipeline using Sentence Transformers and FLAN-T5. The application combines semantic retrieval, local language model generation, and a modern Streamlit-based ChatGPT-style user interface to provide banking-related question answering.
