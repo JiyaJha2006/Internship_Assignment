@@ -1,5 +1,11 @@
+streamlit
 sentence-transformers
-numpy
 transformers
 torch
 sentencepiece
+numpy
+pandas
+chromadb
+langchain
+langchain-community
+langchain-core
