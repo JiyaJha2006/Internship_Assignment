@@ -1,6 +1,6 @@
-import json
-import numpy as np
+import uuid
 import streamlit as st
+import chromadb
 from sentence_transformers import SentenceTransformer
 from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
 st.set_page_config(
@@ -8,6 +8,9 @@ st.set_page_config(
     page_icon="🏦",
     layout="centered"
 )
+DB_PATH = "./vector_db"
+BANKING_COLLECTION_NAME = "banking_knowledge_base"
+MEMORY_COLLECTION_NAME = "chat_memory"
 @st.cache_resource
 def load_models():
     embedding_model = SentenceTransformer("all-MiniLM-L6-v2")
@@ -15,33 +18,183 @@ def load_models():
     tokenizer = AutoTokenizer.from_pretrained(llm_model_name)
     llm_model = AutoModelForSeq2SeqLM.from_pretrained(llm_model_name)
     return embedding_model, tokenizer, llm_model
-@st.cache_data
-def load_dataset():
-    with open("banking_data.json", "r", encoding="utf-8") as file:
-        return json.load(file)
-def cosine_similarity(vector1, vector2):
-    return np.dot(vector1, vector2) / (
-        np.linalg.norm(vector1) * np.linalg.norm(vector2)
+@st.cache_resource
+def load_vector_db():
+    client = chromadb.PersistentClient(path=DB_PATH)
+    banking_collection = client.get_or_create_collection(
+        name=BANKING_COLLECTION_NAME
     )
-def find_best_answer(user_question, dataset, embedding_model, question_embeddings):
-    user_embedding = embedding_model.encode(user_question)
-    best_score = -1
+    memory_collection = client.get_or_create_collection(
+        name=MEMORY_COLLECTION_NAME
+    )
+    return banking_collection, memory_collection
+embedding_model, tokenizer, llm_model = load_models()
+banking_collection, memory_collection = load_vector_db()
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+if "latest_banking_context" not in st.session_state:
+    st.session_state.latest_banking_context = ""
+if "latest_memory_context" not in st.session_state:
+    st.session_state.latest_memory_context = ""
+if "latest_sources" not in st.session_state:
+    st.session_state.latest_sources = []
+if "latest_search_query" not in st.session_state:
+    st.session_state.latest_search_query = ""
+if "current_topic" not in st.session_state:
+    st.session_state.current_topic = ""
+def is_follow_up_question(user_question):
+    q = user_question.lower().strip()
+    follow_up_phrases = [
+        "it", "that", "this", "they", "them", "those", "these",
+        "for it", "about it", "for that", "about that",
+        "how much", "what documents", "documents needed",
+        "required documents", "explain more", "tell me more",
+        "what about", "does it", "can it", "is it"
+    ]
+    if len(q.split()) <= 5:
+        return True
+    for phrase in follow_up_phrases:
+        if phrase in q:
+            return True
+    return False
+def build_recent_chat_history():
+    history_text = ""
+    for chat in st.session_state.chat_history[-6:]:
+        if chat["role"] == "user":
+            history_text += f"User: {chat['message']}\n"
+        else:
+            history_text += f"Assistant: {chat['message']}\n"
+    return history_text
+def build_search_query(user_question):
+    if st.session_state.current_topic and is_follow_up_question(user_question):
+        return f"{st.session_state.current_topic}. {user_question}"
+    return user_question
+def extract_first_answer(banking_context):
+    for line in banking_context.splitlines():
+        line = line.strip()
+        if line.startswith("Answer:"):
+            return line.replace("Answer:", "").strip()
+    return "I found relevant banking information, but could not extract a clear answer."
+def extract_topic_from_question(user_question):
+    return user_question.strip()
+def retrieve_banking_context(search_query, embedding_model, banking_collection, top_k=3):
+    query_embedding = embedding_model.encode(search_query).tolist()
+    results = banking_collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k
+    )
+    documents = results["documents"][0]
+    metadatas = results["metadatas"][0]
+    distances = results["distances"][0]
+    context_text = ""
+    for i in range(len(documents)):
+        section = metadatas[i].get("section", "")
+        question = metadatas[i].get("question", "")
+        answer = metadatas[i].get("answer", "")
+        context_text += f"""
+Result {i + 1}:
+Section: {section}
+Question: {question}
+Answer: {answer}
+Distance: {distances[i]}
+"""
+    return context_text, metadatas, distances
+def retrieve_chat_memory(search_query, embedding_model, memory_collection, top_k=1):
+    if memory_collection.count() == 0:
+        return ""
+    query_embedding = embedding_model.encode(search_query).tolist()
+    results = memory_collection.query(
+        query_embeddings=[query_embedding],
+        n_results=top_k
+    )
+    documents = results["documents"][0]
+    memory_text = ""
+    for i, doc in enumerate(documents):
+        memory_text += f"""
+Past Conversation {i + 1}:
+{doc}
+"""
+    return memory_text
+def save_chat_memory(user_question, bot_answer, embedding_model, memory_collection):
+    memory_text = f"""
+User: {user_question}
+Assistant: {bot_answer}
+"""
+    memory_embedding = embedding_model.encode(memory_text).tolist()
+    memory_collection.add(
+        ids=[str(uuid.uuid4())],
+        embeddings=[memory_embedding],
+        documents=[memory_text],
+        metadatas=[
+            {
+                "user_question": user_question,
+                "bot_answer": bot_answer
+            }
+        ]
+    )
+def choose_best_answer(user_question, banking_context):
+    results = banking_context.split("Result ")
+
+    user_words = set(
+        user_question.lower()
+        .replace("?", "")
+        .replace(".", "")
+        .replace(",", "")
+        .split()
+    )
     best_answer = ""
-    for index, question_embedding in enumerate(question_embeddings):
-        score = cosine_similarity(user_embedding, question_embedding)
+    best_score = -1
+    important_words = [
+        "document", "documents", "needed", "required", "proof",
+        "aadhaar", "pan", "address", "interest", "rate",
+        "savings", "account", "kyc", "loan", "atm", "deposit"
+    ]
+    for result in results:
+        if "Answer:" not in result:
+            continue
+        lines = result.splitlines()
+        question_text = ""
+        answer_text = ""
+        for line in lines:
+            line = line.strip()
+            if line.startswith("Question:"):
+                question_text = line.replace("Question:", "").strip()
+            if line.startswith("Answer:"):
+                answer_text = line.replace("Answer:", "").strip()
+        combined_text = (question_text + " " + answer_text).lower()
+        score = 0
+        for word in user_words:
+            if word in combined_text:
+                score += 2
+        for word in important_words:
+            if word in user_question.lower() and word in combined_text:
+                score += 5
         if score > best_score:
             best_score = score
-            best_answer = dataset[index]["answer"]
-    return best_answer, best_score
-def generate_llm_answer(user_question, retrieved_answer, tokenizer, llm_model):
+            best_answer = answer_text
+    if best_answer == "":
+        return extract_first_answer(banking_context)
+    return best_answer
+def generate_llm_answer(
+    user_question,
+    banking_context,
+    memory_context,
+    recent_chat_history,
+    tokenizer,
+    llm_model
+):
+    best_retrieved_answer = choose_best_answer(
+        user_question,
+        banking_context
+    )
     prompt = f"""
-You are a banking chatbot.
-Use the information below to answer the question in one complete sentence.
-Information:
-{retrieved_answer}
-Question:
+You are a banking assistant.
+Rewrite the retrieved answer into a short, clear answer for the user.
+User Question:
 {user_question}
-Complete answer:
+Retrieved Answer:
+{best_retrieved_answer}
+Final Answer:
 """
     inputs = tokenizer(
         prompt,
@@ -52,21 +205,20 @@ Complete answer:
     outputs = llm_model.generate(
         **inputs,
         max_new_tokens=80,
-        min_new_tokens=15,
-        num_beams=4,
-        early_stopping=True
+        num_beams=1,
+        do_sample=False
     )
     final_answer = tokenizer.decode(
         outputs[0],
         skip_special_tokens=True
-    )
-    if len(final_answer.split()) < 5:
-        final_answer = retrieved_answer
+    ).strip()
+    if (
+        len(final_answer.split()) < 5
+        or "?" in final_answer
+        or final_answer.lower() == user_question.lower()
+    ):
+        final_answer = best_retrieved_answer
     return final_answer
-dataset = load_dataset()
-embedding_model, tokenizer, llm_model = load_models()
-questions = [item["question"] for item in dataset]
-question_embeddings = embedding_model.encode(questions)
 st.markdown("""
 <style>
 .stApp {
@@ -144,13 +296,10 @@ st.markdown("""
 }
 </style>
 """, unsafe_allow_html=True)
-st.markdown('<div class="chat-title">🏦 Banking Chatbot</div>', unsafe_allow_html=True)
 st.markdown(
-    '<div class="chat-subtitle">Ask banking questions using Embeddings, Retrieval, and a Local LLM</div>',
+    '<div class="chat-title">🏦 Banking Chatbot</div>',
     unsafe_allow_html=True
 )
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
 for chat in st.session_state.chat_history:
     if chat["role"] == "user":
         st.markdown(
@@ -164,7 +313,7 @@ for chat in st.session_state.chat_history:
         )
 user_question = st.text_input(
     "Message Banking Chatbot",
-    placeholder="Ask something like: What is KYC?"
+    placeholder="Ask something like: What is a savings account?"
 )
 col1, col2 = st.columns([4, 1])
 with col2:
@@ -173,54 +322,99 @@ if ask_button:
     if user_question.strip() == "":
         st.warning("Please enter a question.")
     else:
+        search_query = build_search_query(user_question)
         st.session_state.chat_history.append(
             {"role": "user", "message": user_question}
         )
-        with st.spinner("Thinking..."):
-            retrieved_answer, score = find_best_answer(
-                user_question,
-                dataset,
+        with st.spinner("Searching knowledge base and generating answer..."):
+            banking_context, metadatas, distances = retrieve_banking_context(
+                search_query,
                 embedding_model,
-                question_embeddings
+                banking_collection,
+                top_k=3
             )
-            if score < 0.35:
-                bot_reply = "Sorry, I do not have enough banking information to answer that."
-            else:
-                bot_reply = generate_llm_answer(
-                    user_question,
-                    retrieved_answer,
-                    tokenizer,
-                    llm_model
-                )
+            memory_context = retrieve_chat_memory(
+                search_query,
+                embedding_model,
+                memory_collection,
+                top_k=1
+            )
+            recent_chat_history = build_recent_chat_history()
+            bot_reply = generate_llm_answer(
+                user_question,
+                banking_context,
+                memory_context,
+                recent_chat_history,
+                tokenizer,
+                llm_model
+            )
+            save_chat_memory(
+                user_question,
+                bot_reply,
+                embedding_model,
+                memory_collection
+            )
+            if not is_follow_up_question(user_question):
+                st.session_state.current_topic = extract_topic_from_question(user_question)
+            if st.session_state.current_topic == "":
+                st.session_state.current_topic = extract_topic_from_question(user_question)
+            st.session_state.latest_banking_context = banking_context
+            st.session_state.latest_memory_context = memory_context
+            st.session_state.latest_sources = metadatas
+            st.session_state.latest_search_query = search_query
         st.session_state.chat_history.append(
             {"role": "bot", "message": bot_reply}
         )
+
         st.rerun()
-with st.expander("🔍 View Latest Retrieval Details"):
-    if len(st.session_state.chat_history) == 0:
+with st.expander("View Contextual Search Query"):
+    if st.session_state.latest_search_query == "":
+        st.write("Ask a question first.")
+    else:
+        st.write(st.session_state.latest_search_query)
+with st.expander("View Latest Retrieved Banking Context"):
+    if st.session_state.latest_banking_context == "":
         st.write("Ask a question first to view retrieval details.")
     else:
-        last_user_question = None
-
-        for chat in reversed(st.session_state.chat_history):
-            if chat["role"] == "user":
-                last_user_question = chat["message"]
-                break
-        if last_user_question:
-            retrieved_answer, score = find_best_answer(
-                last_user_question,
-                dataset,
-                embedding_model,
-                question_embeddings
-            )
-            st.write("Retrieved Banking Information:")
-            st.info(retrieved_answer)
-            st.write("Similarity Score:")
-            st.write(round(float(score), 3))
-if st.button("Clear Chat"):
-    st.session_state.chat_history = []
-    st.rerun()
-st.markdown(
-    '<div class="footer">Built using Sentence Transformers + FLAN-T5 + Streamlit</div>',
-    unsafe_allow_html=True
-)
+        st.write(st.session_state.latest_banking_context)
+with st.expander("View Retrieved Chat Memory"):
+    if st.session_state.latest_memory_context == "":
+        st.write("No relevant past memory retrieved yet.")
+    else:
+        st.write(st.session_state.latest_memory_context)
+with st.expander("View Retrieved Source Questions"):
+    if len(st.session_state.latest_sources) == 0:
+        st.write("No sources retrieved yet.")
+    else:
+        for i, source in enumerate(st.session_state.latest_sources):
+            st.write(f"Source {i + 1}")
+            st.write("Section:", source.get("section", ""))
+            st.write("Question:", source.get("question", ""))
+            st.write("Answer:", source.get("answer", ""))
+with st.expander("Current Topic"):
+    if st.session_state.current_topic == "":
+        st.write("No current topic yet.")
+    else:
+        st.write(st.session_state.current_topic)
+col_clear1, col_clear2 = st.columns(2)
+with col_clear1:
+    if st.button("Clear Chat"):
+        st.session_state.chat_history = []
+        st.session_state.latest_banking_context = ""
+        st.session_state.latest_memory_context = ""
+        st.session_state.latest_sources = []
+        st.session_state.latest_search_query = ""
+        st.session_state.current_topic = ""
+        st.rerun()
+with col_clear2:
+    if st.button("Clear Persistent Memory"):
+        all_memory = memory_collection.get()
+        if len(all_memory["ids"]) > 0:
+            memory_collection.delete(ids=all_memory["ids"])
+        st.session_state.chat_history = []
+        st.session_state.latest_banking_context = ""
+        st.session_state.latest_memory_context = ""
+        st.session_state.latest_sources = []
+        st.session_state.latest_search_query = ""
+        st.session_state.current_topic = ""
+        st.rerun()
