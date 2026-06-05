@@ -1,295 +1,315 @@
-# 🏦 Banking Chatbot using Embeddings, Retrieval-Augmented Generation (RAG), and Local LLM
+# 🏦 Banking Chatbot using RAG, ChromaDB, and Local LLM
 
-## Overview
+## 📌 Project Overview
 
-This project is a Banking Chatbot developed using Retrieval-Augmented Generation (RAG).
+This project is an intelligent Banking Chatbot built using Retrieval-Augmented Generation (RAG).
 
-The chatbot combines:
+The chatbot answers banking-related questions by retrieving relevant information from a banking knowledge base stored in a ChromaDB vector database and generating natural language responses using a local Large Language Model (FLAN-T5).
 
-* Sentence Transformer Embeddings
-* Cosine Similarity Retrieval
-* FLAN-T5 Local Language Model
-* Streamlit Web Interface
+Unlike traditional chatbots, this system supports:
 
-The system retrieves relevant banking information from a knowledge base and uses a local LLM to generate natural language responses.
-
----
-
-# Features
-
-### AI Features
-
-* Semantic Search using Embeddings
-* Retrieval-Augmented Generation (RAG)
-* Local Large Language Model (FLAN-T5)
-* Banking Question Answering
-* Similarity-based Information Retrieval
-
-### User Interface Features
-
-* ChatGPT-style Interface
-* Conversation History
-* User and Bot Chat Bubbles
-* Real-time Response Generation
-* Retrieval Details Viewer
-* Clear Chat Button
-* Responsive Web Interface
+* Semantic search using embeddings
+* Persistent vector storage using ChromaDB
+* Follow-up question handling
+* Context-aware retrieval
+* Conversation memory
+* Local LLM inference
+* Interactive Streamlit web interface
 
 ---
 
-# Technologies Used
+# 🚀 Features
 
-## Frontend
+## 1. Banking Knowledge Base
 
-* Streamlit
-* HTML/CSS Styling
-* ChatGPT-inspired UI Design
+The chatbot uses a large banking dataset containing questions and answers related to:
 
-## Backend
+* Savings Accounts
+* Current Accounts
+* Fixed Deposits
+* Loans
+* KYC
+* ATM Services
+* Debit Cards
+* Credit Cards
+* Online Banking
+* Mobile Banking
+* Account Opening Procedures
 
-* Python
-* Sentence Transformers
-* Transformers Library
-* NumPy
+---
 
-## Language Models
+## 2. Semantic Search using Sentence Transformers
 
-### Embedding Model
+Model Used:
 
-```text
 all-MiniLM-L6-v2
-```
 
-Used for converting user questions and banking questions into vector embeddings.
-
-### Local LLM
-
-```text
-google/flan-t5-base
-```
-
-Used for generating natural language responses.
-
----
-
-# Project Structure
-
-```text
-banking_chatbot/
-│
-├── app.py
-├── chatbot.py
-├── banking_data.json
-├── requirements.txt
-└── README.md
-```
-
----
-
-# System Architecture
-
-```text
-User Question
-        │
-        ▼
-Frontend (Streamlit UI)
-        │
-        ▼
-Sentence Transformer
-(all-MiniLM-L6-v2)
-        │
-        ▼
-Embedding Generation
-        │
-        ▼
-Cosine Similarity Search
-        │
-        ▼
-Retrieve Banking Context
-        │
-        ▼
-FLAN-T5 Local LLM
-        │
-        ▼
-Generate Final Answer
-        │
-        ▼
-Display Response in UI
-```
-
----
-
-# Backend Workflow
-
-### Step 1: User Query
-
-The user enters a banking question through the Streamlit interface.
+Instead of keyword matching, user queries are converted into vector embeddings.
 
 Example:
 
-```text
-What is KYC?
-```
+User Question:
+
+What documents are required for opening an account?
+
+Even if the dataset contains:
+
+What documents are needed to open a bank account?
+
+the chatbot can still retrieve the correct answer because the semantic meaning is similar.
 
 ---
 
-### Step 2: Embedding Generation
+## 3. ChromaDB Vector Database
 
-The query is converted into a vector representation using:
+All banking knowledge is stored inside a persistent ChromaDB vector database.
 
-```text
-all-MiniLM-L6-v2
-```
+Benefits:
 
----
+* Fast retrieval
+* Semantic search
+* Persistent storage
+* Scalable architecture
 
-### Step 3: Similarity Search
+Workflow:
 
-Cosine similarity is calculated between:
-
-* User Query Embedding
-* Stored Banking Question Embeddings
-
-The most relevant banking question is identified.
-
----
-
-### Step 4: Retrieval
-
-The corresponding banking answer is retrieved from:
-
-```text
-banking_data.json
-```
+Dataset
+↓
+Embeddings
+↓
+ChromaDB
+↓
+Retriever
+↓
+Answer Generation
 
 ---
 
-### Step 5: LLM Generation
+## 4. Persistent Conversation Memory
 
-The system sends:
+The chatbot stores previous conversations inside a separate ChromaDB memory collection.
 
-* User Question
-* Retrieved Banking Information
+Stored Format:
 
-to:
+User: What is KYC?
+Assistant: KYC is the process used by banks to verify customer identity.
 
-```text
-FLAN-T5 Base
-```
+Benefits:
 
-The LLM generates the final response.
-
----
-
-### Step 6: Display Response
-
-The generated answer is displayed in the chatbot interface.
+* Remembers previous discussions
+* Retrieves relevant past conversations
+* Supports follow-up questions
 
 ---
 
-# Frontend Workflow
+## 5. Context-Aware Retrieval
 
-The frontend is built using Streamlit.
+The chatbot tracks the current topic.
 
-Components used:
+Example:
 
-### Chat Window
+User: What is a savings account?
 
-Displays:
+User: How much interest does it give?
 
-* User Messages
-* Bot Responses
+User: What documents are needed for it?
 
-using chat bubbles.
+The chatbot understands that:
 
-### Input Box
+"it" = savings account
 
-Allows users to enter banking questions.
-
-### Send Button
-
-Triggers backend processing.
-
-### Retrieval Details Section
-
-Shows:
-
-* Retrieved Banking Information
-* Similarity Score
-
-for transparency and debugging.
-
-### Clear Chat Button
-
-Clears the conversation history.
+and retrieves information related to savings accounts instead of searching the entire dataset blindly.
 
 ---
 
-# Banking Knowledge Base
+## 6. Local Large Language Model
 
-The chatbot currently supports:
+Model Used:
 
-* KYC
-* Savings Account
-* Current Account
-* Fixed Deposit
-* ATM Card
-* Internet Banking
-* Loans
-* Account Opening Documents
+google/flan-t5-base
 
-The knowledge base is stored in:
+Purpose:
 
-```text
-banking_data.json
-```
+* Rewrite retrieved information
+* Improve readability
+* Generate conversational responses
+
+Important:
+
+The model does NOT generate answers from its own knowledge.
+
+Instead:
+
+Retrieve Information
+↓
+Select Best Match
+↓
+Rewrite Response
+↓
+Display Answer
+
+This reduces hallucinations and improves accuracy.
 
 ---
 
-# Installation
+## 7. Best Answer Selection
+
+When multiple documents are retrieved:
+
+Result 1
+Result 2
+Result 3
+
+the chatbot automatically scores them against the user question and selects the most relevant answer.
+
+This prevents unrelated answers from being returned.
+
+---
+
+## 8. Streamlit Web Interface
+
+The application includes a modern conversational UI inspired by ChatGPT.
+
+Features:
+
+* Chat interface
+* Dark theme
+* Conversation history
+* Source inspection
+* Memory inspection
+* Context query visualization
+
+---
+
+# 🏗 System Architecture
+
+User Question
+↓
+Context Builder
+↓
+Sentence Transformer
+↓
+Embedding Vector
+↓
+ChromaDB Retrieval
+↓
+Top-K Results
+↓
+Best Answer Selector
+↓
+FLAN-T5 Rewriter
+↓
+Final Response
+
+---
+
+# 🧠 Conversation Memory Architecture
+
+User Question
+↓
+Embedding
+↓
+Memory Vector Database
+↓
+Retrieve Similar Conversations
+↓
+Add Context
+↓
+Generate Answer
+
+---
+
+# 📂 Project Structure
+
+banking_chatbot/
+
+├── app.py
+
+├── banking_data.csv
+
+├── create_vector_db.py
+
+├── vector_db/
+
+├── requirements.txt
+
+└── README.md
+
+---
+
+# ⚙️ Installation
 
 Install dependencies:
 
-```bash
 pip install -r requirements.txt
-```
 
 ---
 
-# Run the Application
+# ▶️ Running the Application
 
-Launch the Streamlit interface:
+Start Streamlit:
 
-```bash
-python -m streamlit run app.py
-```
+streamlit run app.py
+
+Application will open at:
+
+http://localhost:8501
 
 ---
 
-# Example Conversation
+# 📦 Technologies Used
 
-```text
-User:
-What is KYC?
+Frontend:
 
-Bot:
-KYC means Know Your Customer. It is a process used by banks to verify the identity and address of customers.
-```
+* Streamlit
+
+Backend:
+
+* Python
+
+Embeddings:
+
+* Sentence Transformers
+* all-MiniLM-L6-v2
+
+Vector Database:
+
+* ChromaDB
+
+Language Model:
+
+* FLAN-T5 Base
+
+Machine Learning Libraries:
+
+* Transformers
+* PyTorch
 
 ---
 
 # Future Improvements
 
-* Larger Banking Dataset
-* PDF Knowledge Base Support
-* Vector Database Integration (FAISS/Pinecone)
-* Voice-Based Chatbot
-* Multi-turn Context Memory
-* Fine-tuned Banking LLM
-* Authentication System
+* Source citations below answers
+* Stronger local LLM (Phi-3 Mini / Qwen 2.5)
+* LangChain integration
+* Multi-turn reasoning
+* PDF knowledge ingestion
+* Banking document upload support
+* Voice-enabled chatbot
 
 ---
 
-# Conclusion
+# Learning Outcomes
 
-This project demonstrates a complete Retrieval-Augmented Generation (RAG) pipeline using Sentence Transformers and FLAN-T5. The application combines semantic retrieval, local language model generation, and a modern Streamlit-based ChatGPT-style user interface to provide banking-related question answering.
+This project demonstrates:
+
+* Retrieval-Augmented Generation (RAG)
+* Vector Databases
+* Embedding Models
+* Semantic Search
+* Local LLM Deployment
+* Conversational Memory
+* Context-Aware Retrieval
+* Streamlit Application Development
+
+---
